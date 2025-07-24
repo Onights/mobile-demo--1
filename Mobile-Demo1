@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mobile Scroll Resume</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f5f5f5;
+      color: #222;
+      font-size: 16px;
+    }
+    header {
+      position: sticky;
+      top: 0;
+      background: #fff;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      border-bottom: 1px solid #ddd;
+      z-index: 10;
+    }
+    input[type="text"],
+    input[type="number"] {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      box-sizing: border-box;
+    }
+    #itemList {
+      height: calc(100vh - 130px);
+      overflow-y: auto;
+      padding: 12px;
+    }
+    .item {
+      background: #fff;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      font-weight: 500;
+    }
+    .highlight {
+      background-color: #ffeaa7;
+      transition: background-color 1s ease;
+    }
+    #resumePrompt {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: white;
+      padding: 16px 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+      display: none;
+      z-index: 1000;
+      text-align: center;
+    }
+    #resumePrompt button {
+      margin: 12px 6px 0;
+      padding: 10px 18px;
+      font-size: 15px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    #resumeYes {
+      background: #0074e4;
+      color: white;
+    }
+    #resumeNo {
+      background: #ccc;
+      color: #222;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <input id="searchBar" type="text" placeholder="Search items..." autocomplete="off" />
+    <input id="jumpTo" type="number" placeholder="Go to item #" min="1" />
+  </header>
+
+  <div id="resumePrompt">
+    <div>Resume where you left off?</div>
+    <button id="resumeYes">Yes</button>
+    <button id="resumeNo">No</button>
+  </div>
+
+  <div id="itemList" tabindex="0" aria-label="Item list"></div>
+
+  <script>
+    const itemList = document.getElementById('itemList');
+    const searchBar = document.getElementById('searchBar');
+    const jumpTo = document.getElementById('jumpTo');
+    const resumePrompt = document.getElementById('resumePrompt');
+    const resumeYes = document.getElementById('resumeYes');
+    const resumeNo = document.getElementById('resumeNo');
+    const MAX_ITEMS = 1000;
+    let items = [], filteredItems = [];
+
+    function generateItems() {
+      items = [];
+      for (let i = 1; i <= MAX_ITEMS; i++) {
+        items.push({ id: i, title: `Item ${i}` });
+      }
+    }
+
+    function getStorageKey() {
+      return `search::${searchBar.value.trim().toLowerCase()}`;
+    }
+
+    function saveState() {
+      const key = getStorageKey();
+      localStorage.setItem(key, JSON.stringify({
+        scrollTop: itemList.scrollTop,
+        jumpValue: jumpTo.value
+      }));
+    }
+
+    function renderList() {
+      const term = searchBar.value.trim().toLowerCase();
+      filteredItems = items.filter(item => item.title.toLowerCase().includes(term));
+      itemList.innerHTML = '';
+      filteredItems.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'item';
+        div.id = `item-${item.id}`;
+        div.textContent = item.title;
+        itemList.appendChild(div);
+      });
+    }
+
+    function showResumePrompt(data) {
+      resumePrompt.style.display = 'block';
+      resumeYes.onclick = () => {
+        resumePrompt.style.display = 'none';
+        setTimeout(() => {
+          itemList.scrollTop = data.scrollTop || 0;
+          jumpTo.value = data.jumpValue || '';
+        }, 50);
+      };
+      resumeNo.onclick = () => {
+        resumePrompt.style.display = 'none';
+        localStorage.removeItem(getStorageKey());
+      };
+    }
+
+    function checkResumePrompt() {
+      const saved = localStorage.getItem(getStorageKey());
+      if (saved) {
+        try {
+          const data = JSON.parse(saved);
+          showResumePrompt(data);
+        } catch (e) {}
+      }
+    }
+
+    function jumpToItem(num) {
+      const target = document.getElementById(`item-${num}`);
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        target.classList.add('highlight');
+        setTimeout(() => target.classList.remove('highlight'), 1500);
+      } else {
+        alert(`Item #${num} not found.`);
+      }
+    }
+
+    // Event listeners
+    searchBar.addEventListener('input', () => {
+      renderList();
+      checkResumePrompt();
+      saveState();
+    });
+
+    jumpTo.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        const val = parseInt(jumpTo.value, 10);
+        if (val >= 1 && val <= MAX_ITEMS) {
+          jumpToItem(val);
+        }
+      }
+    });
+
+    itemList.addEventListener('scroll', saveState);
+    jumpTo.addEventListener('input', saveState);
+
+    // Init
+    generateItems();
+    renderList();
+    checkResumePrompt();
+  </script>
+</body>
+</html>
